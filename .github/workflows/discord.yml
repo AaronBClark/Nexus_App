@@ -1,0 +1,114 @@
+name: Discord Notify
+
+on:
+  push:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Branch or SHA to report (blank = default branch)"
+        required: false
+        default: ""
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # For push events, fetching 2 commits helps with compare/log.
+          # For manual runs, we’ll fetch enough to read the latest commit anyway.
+          fetch-depth: 50
+          ref: ${{ inputs.ref != '' && inputs.ref || github.ref }}
+
+      - name: Build payload + send to Discord
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          EVENT_NAME: ${{ github.event_name }}
+          REPO: ${{ github.repository }}
+          REF_NAME: ${{ github.ref_name }}
+          SERVER_URL: ${{ github.server_url }}
+          REPO_URL: ${{ github.server_url }}/${{ github.repository }}
+        run: |
+          set -euo pipefail
+
+          # Latest commit info from the checked-out ref (works for both push + manual)
+          COMMIT_SHA="$(git rev-parse HEAD)"
+          COMMIT_MSG="$(git log -1 --pretty=%s)"
+          COMMIT_AUTHOR="$(git log -1 --pretty=%an)"
+          COMMIT_URL="${REPO_URL}/commit/${COMMIT_SHA}"
+
+          # Try to build a compare URL when possible (push event has before/after)
+          COMPARE_URL=""
+          if [ "${EVENT_NAME}" = "push" ]; then
+            BEFORE="${{ github.event.before }}"
+            AFTER="${{ github.event.after }}"
+            if [ -n "$BEFORE" ] && [ -n "$AFTER" ]; then
+              COMPARE_URL="${REPO_URL}/compare/${BEFORE}...${AFTER}"
+            fi
+          fi
+
+          # Collect up to 5 commits for push events, otherwise just the latest
+          COMMITS_TEXT=""
+          if [ "${EVENT_NAME}" = "push" ]; then
+            # Show up to 5 most recent commits in this push range if we can.
+            # If compare is available, use the range; else fallback to last 5 on branch.
+            if [ -n "$COMPARE_URL" ]; then
+              RANGE="${{ github.event.before }}..${{ github.event.after }}"
+              COMMITS_TEXT="$(git log --pretty='- %s (%h)' $RANGE | head -n 5 || true)"
+            else
+              COMMITS_TEXT="$(git log -5 --pretty='- %s (%h)' || true)"
+            fi
+          else
+            COMMITS_TEXT="- ${COMMIT_MSG} ($(git rev-parse --short HEAD))"
+          fi
+
+          # Escape JSON safely using python (no jq needed)
+          python - <<'PY'
+          import json, os
+
+          repo = os.environ["REPO"]
+          ref = os.environ["REF_NAME"]
+          event = os.environ["EVENT_NAME"]
+          repo_url = os.environ["REPO_URL"]
+          commit_sha = os.environ["COMMIT_SHA"]
+          commit_msg = os.environ["COMMIT_MSG"]
+          commit_author = os.environ["COMMIT_AUTHOR"]
+          commit_url = os.environ["COMMIT_URL"]
+          compare_url = os.environ.get("COMPARE_URL","")
+          commits_text = os.environ.get("COMMITS_TEXT","")
+
+          title = f"{repo} • {event} • {ref}"
+          description_lines = []
+          description_lines.append(f"**Latest:** [{commit_msg}]({commit_url})")
+          description_lines.append(f"**Author:** {commit_author}")
+          if compare_url:
+            description_lines.append(f"**Compare:** {compare_url}")
+          description_lines.append("")
+          description_lines.append("**Commits:**")
+          description_lines.append(commits_text or "- (none)")
+
+          payload = {
+            "content": "",  # keep empty; embed carries the info
+            "embeds": [{
+              "title": title,
+              "url": repo_url,
+              "description": "\n".join(description_lines),
+              "footer": {"text": f"SHA: {commit_sha}"},
+            }]
+          }
+
+          print(json.dumps(payload))
+          PY
+          )" > payload.json
+
+          curl -sS -H "Content-Type: application/json" \
+            -d @payload.json \
+            "$DISCORD_WEBHOOK_URL"
+        env:
+          COMMIT_SHA: ${{ github.sha }}
+          COMMIT_MSG: ""
+          COMMIT_AUTHOR: ""
+          COMMIT_URL: ""
+          COMPARE_URL: ""
+          COMMITS_TEXT: ""
