@@ -1,0 +1,22 @@
+{
+  "name": "nexus_app",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "ts-node-dev src/index.ts",
+    "deploy": "node --loader ts-node/esm src/deploy-commands.ts",
+    "build": "tsc",
+    "start": "node dist/index.js"
+  },
+  "dependencies": {
+    "discord.js": "^14.25.1",
+    "dotenv": "^17.3.1",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@types/node": "^25.3.0",
+    "ts-node": "^10.9.2",
+    "ts-node-dev": "^2.0.0",
+    "typescript": "^5.9.3"
+  }
+}
