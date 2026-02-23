@@ -53,7 +53,7 @@ jobs:
           COMMITS_TEXT=""
           if [ "${EVENT_NAME}" = "push" ]; then
             if [ -n "$COMPARE_URL" ]; then
-              COMMITS_TEXT="$(git log --pretty='- %s (%h)' "${BEFORE}..${AFTER}" | head -n 5 || true)"
+              COMMITS_TEXT="$(git log --pretty='- %s (%h)' "${BEFORE}..${AFTER}" | head -n 10 || true)"
             else
               COMMITS_TEXT="$(git log -5 --pretty='- %s (%h)' || true)"
             fi
@@ -92,9 +92,12 @@ jobs:
           payload = {
               "embeds": [{
                   "title": title,
-                  "url": repo_url,
+                  # Click goes to compare when available, else repo
+                  "url": compare_url or repo_url,
                   "description": "\n".join(lines),
                   "footer": {"text": f"SHA: {commit_sha}"},
+                  # Subtle color: green for push, blurple for manual
+                  "color": 0x57F287 if event == "push" else 0x5865F2,
               }]
           }
 
