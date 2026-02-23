@@ -16,8 +16,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          # For push events, fetching 2 commits helps with compare/log.
-          # For manual runs, we’ll fetch enough to read the latest commit anyway.
+          # Fetch enough history to build commit lists when possible
           fetch-depth: 50
           ref: ${{ inputs.ref != '' && inputs.ref || github.ref }}
 
@@ -27,10 +26,16 @@ jobs:
           EVENT_NAME: ${{ github.event_name }}
           REPO: ${{ github.repository }}
           REF_NAME: ${{ github.ref_name }}
-          SERVER_URL: ${{ github.server_url }}
           REPO_URL: ${{ github.server_url }}/${{ github.repository }}
+          BEFORE: ${{ github.event.before }}
+          AFTER: ${{ github.event.after }}
         run: |
           set -euo pipefail
+
+          if [ -z "${DISCORD_WEBHOOK_URL:-}" ]; then
+            echo "Missing secret: DISCORD_WEBHOOK_URL"
+            exit 1
+          fi
 
           # Latest commit info from the checked-out ref (works for both push + manual)
           COMMIT_SHA="$(git rev-parse HEAD)"
@@ -38,24 +43,17 @@ jobs:
           COMMIT_AUTHOR="$(git log -1 --pretty=%an)"
           COMMIT_URL="${REPO_URL}/commit/${COMMIT_SHA}"
 
-          # Try to build a compare URL when possible (push event has before/after)
+          # Build compare URL when possible (push event has before/after)
           COMPARE_URL=""
-          if [ "${EVENT_NAME}" = "push" ]; then
-            BEFORE="${{ github.event.before }}"
-            AFTER="${{ github.event.after }}"
-            if [ -n "$BEFORE" ] && [ -n "$AFTER" ]; then
-              COMPARE_URL="${REPO_URL}/compare/${BEFORE}...${AFTER}"
-            fi
+          if [ "${EVENT_NAME}" = "push" ] && [ -n "${BEFORE:-}" ] && [ -n "${AFTER:-}" ]; then
+            COMPARE_URL="${REPO_URL}/compare/${BEFORE}...${AFTER}"
           fi
 
           # Collect up to 5 commits for push events, otherwise just the latest
           COMMITS_TEXT=""
           if [ "${EVENT_NAME}" = "push" ]; then
-            # Show up to 5 most recent commits in this push range if we can.
-            # If compare is available, use the range; else fallback to last 5 on branch.
             if [ -n "$COMPARE_URL" ]; then
-              RANGE="${{ github.event.before }}..${{ github.event.after }}"
-              COMMITS_TEXT="$(git log --pretty='- %s (%h)' $RANGE | head -n 5 || true)"
+              COMMITS_TEXT="$(git log --pretty='- %s (%h)' "${BEFORE}..${AFTER}" | head -n 5 || true)"
             else
               COMMITS_TEXT="$(git log -5 --pretty='- %s (%h)' || true)"
             fi
@@ -63,45 +61,49 @@ jobs:
             COMMITS_TEXT="- ${COMMIT_MSG} ($(git rev-parse --short HEAD))"
           fi
 
-          # Escape JSON safely using python (no jq needed)
-          python - <<'PY'
+          # Make shell vars visible to Python
+          export COMMIT_SHA COMMIT_MSG COMMIT_AUTHOR COMMIT_URL COMPARE_URL COMMITS_TEXT
+
+          python3 - <<'PY' > payload.json
           import json, os
 
           repo = os.environ["REPO"]
           ref = os.environ["REF_NAME"]
           event = os.environ["EVENT_NAME"]
           repo_url = os.environ["REPO_URL"]
+
           commit_sha = os.environ["COMMIT_SHA"]
           commit_msg = os.environ["COMMIT_MSG"]
           commit_author = os.environ["COMMIT_AUTHOR"]
           commit_url = os.environ["COMMIT_URL"]
-          compare_url = os.environ.get("COMPARE_URL","")
-          commits_text = os.environ.get("COMMITS_TEXT","")
+          compare_url = os.environ.get("COMPARE_URL", "")
+          commits_text = os.environ.get("COMMITS_TEXT", "")
 
           title = f"{repo} • {event} • {ref}"
-          description_lines = []
-          description_lines.append(f"**Latest:** [{commit_msg}]({commit_url})")
-          description_lines.append(f"**Author:** {commit_author}")
+
+          lines = [
+              f"**Latest:** [{commit_msg}]({commit_url})",
+              f"**Author:** {commit_author}",
+          ]
           if compare_url:
-            description_lines.append(f"**Compare:** {compare_url}")
-          description_lines.append("")
-          description_lines.append("**Commits:**")
-          description_lines.append(commits_text or "- (none)")
+              lines.append(f"**Compare:** {compare_url}")
+          lines += ["", "**Commits:**", commits_text or "- (none)"]
 
           payload = {
-            "content": "",  # keep empty; embed carries the info
-            "embeds": [{
-              "title": title,
-              "url": repo_url,
-              "description": "\n".join(description_lines),
-              "footer": {"text": f"SHA: {commit_sha}"},
-            }]
+              "embeds": [{
+                  "title": title,
+                  "url": repo_url,
+                  "description": "\n".join(lines),
+                  "footer": {"text": f"SHA: {commit_sha}"},
+              }]
           }
 
           print(json.dumps(payload))
           PY
-          )" > payload.json
 
-          curl -sS -H "Content-Type: application/json" \
+          echo "Payload:"
+          cat payload.json
+
+          curl -f -sS -H "Content-Type: application/json" \
             -d @payload.json \
             "$DISCORD_WEBHOOK_URL"
