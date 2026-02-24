@@ -1,10 +1,16 @@
 import { REST, Routes } from "discord.js";
 import dotenv from "dotenv";
 import { pingCommand } from "./commands/ping.js";
+import { listPacketsCommand } from "./commands/list-packets.js";
+import { seedTemplateCommand } from "./commands/seed-template.js";
 
 dotenv.config();
 
-const commands = [pingCommand.data.toJSON()];
+const commands = [
+  pingCommand.data.toJSON(),
+  listPacketsCommand.data.toJSON(),
+  seedTemplateCommand.data.toJSON()
+];
 
 const rest = new REST({ version: "10" }).setToken(process.env.DISCORD_TOKEN!);
 
