@@ -6,51 +6,32 @@ type PacketHeaderLike = {
   schema_version: string;
   packet_version: string;
   created_at: string;
-  updated_at: string;
+  updated_at: string
   scope: { level: string; element_id: string };
   publish: { visibility: string };
 };
 
-export function savePacket(packet: PacketHeaderLike & Record<string, unknown>) {
-  const stmt = db.prepare(`
-    INSERT INTO objects (
-      id, type, schema_version, packet_version,
-      created_at, updated_at,
-      scope_level, element_id,
-      visibility, content_json
-    ) VALUES (
-      @id, @type, @schema_version, @packet_version,
-      @created_at, @updated_at,
-      @scope_level, @element_id,
-      @visibility, @content_json
-    )
-    ON CONFLICT(id) DO UPDATE SET
-      updated_at=excluded.updated_at,
-      visibility=excluded.visibility,
-      content_json=excluded.content_json
-  `);
+export function savePacket(packet: any, opts?: { overwrite?: boolean }) {
+  const overwrite = opts?.overwrite ?? false;
 
-  stmt.run({
-    id: packet.id,
-    type: packet.type,
-    schema_version: packet.schema_version,
-    packet_version: packet.packet_version,
-    created_at: packet.created_at,
-    updated_at: packet.updated_at,
-    scope_level: packet.scope.level,
-    element_id: packet.scope.element_id,
-    visibility: packet.publish.visibility,
-    content_json: JSON.stringify(packet),
-  });
+  if (overwrite) {
+    db.prepare(`
+      INSERT OR REPLACE INTO objects (id, type, schema_version, packet_version, scope_level, visibility, element_id, created_at, updated_at, content_json)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(packet.id, packet.type, packet.schema_version, packet.packet_version, packet.scope.level, packet.publish.visibility, packet.scope.element_id, packet.created_at, packet.updated_at, JSON.stringify(packet));
+  } else {
+    // Strict insert: fail if exists
+    db.prepare(`
+      INSERT INTO objects (id, type, schema_version, packet_version, scope_level, visibility, element_id, created_at, updated_at, content_json)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(packet.id, packet.type, packet.schema_version, packet.packet_version, packet.scope.level, packet.publish.visibility, packet.scope.element_id,packet.created_at, packet.updated_at, JSON.stringify(packet));
+  }
 }
 
 type ObjectRow = { content_json: string };
 
 export function getPacketById(id: string) {
-  const row = db
-    .prepare<[string], ObjectRow>(`SELECT content_json FROM objects WHERE id = ?`)
-    .get(id);
-
+  const row = db.prepare("SELECT content_json FROM objects WHERE id = ?").get(id) as any;
   if (!row) return null;
   return JSON.parse(row.content_json);
 }

@@ -13,6 +13,12 @@ export const listPacketsCommand = {
           { name: "MissionTemplate", value: "MissionTemplate" },
           { name: "MissionPlan", value: "MissionPlan" },
           { name: "MissionReport", value: "MissionReport" },
+          { name: "Module", value: "Module" },
+          { name: "Policy", value: "Policy" },
+          { name: "Element", value: "Element" },
+          { name: "Initiative", value: "Initiative" },
+          { name: "Program", value: "Program" },
+          { name: "Campaign", value: "Campaign" },
         )
     )
     .addIntegerOption((opt: any) =>
