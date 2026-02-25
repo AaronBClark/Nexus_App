@@ -6,8 +6,6 @@ export const PacketType = z.enum([
   "MissionReport",
   "Module",
   "Policy",
-
-  // reserved for later (safe to add now, no harm)
   "Initiative",
   "Program",
   "Campaign",
