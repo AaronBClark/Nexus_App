@@ -48,3 +48,25 @@ export function listPacketsByType(type: string, limit = 50) {
 
   return rows.map((r) => JSON.parse(r.content_json));
 }
+
+export function listOutgoingLinks(fromId: string) {
+  return db.prepare(
+    `SELECT rel, to_id FROM object_links WHERE from_id = ? ORDER BY rel, to_id`
+  ).all(fromId);
+}
+
+export function listIncomingLinks(toId: string) {
+  return db.prepare(
+    `SELECT rel, from_id FROM object_links WHERE to_id = ? ORDER BY rel, from_id`
+  ).all(toId);
+}
+
+export function getObjectsByIds(ids: string[]) {
+  if (!ids.length) return [];
+  const placeholders = ids.map(() => "?").join(",");
+  return db.prepare(
+    `SELECT id, type, created_at, updated_at, content_json
+     FROM objects
+     WHERE id IN (${placeholders})`
+  ).all(...ids);
+}

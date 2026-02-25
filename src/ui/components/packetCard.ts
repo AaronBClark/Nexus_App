@@ -96,9 +96,22 @@ function collectRelations(packet: any): string[] {
  */
 function buildPrimaryButtons(packet: any) {
   const r = packet.relations;
+  const seenTargets = new Set<string>();
+
   if (!r) return null;
 
-  const row = new ActionRowBuilder<ButtonBuilder>();
+  const rows: ActionRowBuilder<ButtonBuilder>[] = [
+    new ActionRowBuilder<ButtonBuilder>(),
+  ];
+
+  const addButton = (btn: ButtonBuilder) => {
+    let row = rows[rows.length - 1];
+    if (row.components.length >= 5) {
+      row = new ActionRowBuilder<ButtonBuilder>();
+      rows.push(row);
+    }
+    row.addComponents(btn);
+  };
 
   const mapping: Array<[keyof typeof r, string]> = [
     ["parent_id", "parent"],
@@ -109,19 +122,29 @@ function buildPrimaryButtons(packet: any) {
   ];
 
   for (const [key, label] of mapping) {
-    const val = r[key];
-    if (!val) continue;
+        const val = r[key];
+        if (!val) continue;
+        if (seenTargets.has(val)) continue; // ✅ prevents duplicate customIds
+        seenTargets.add(val);
 
-    row.addComponents(
-      new ButtonBuilder()
-        .setCustomId(`nx:view_packet_btn|${encodeId(val)}`)
-        .setLabel(label)
+        addButton(
+        new ButtonBuilder()
+            .setCustomId(`nx:view_packet_btn|${encodeId(val)}`)
+            .setLabel(label)
+            .setStyle(ButtonStyle.Secondary)
+        );
+
+    addButton(
+        new ButtonBuilder()
+        .setCustomId(`nx:show_backlinks|${encodeId(packet.id)}`)
+        .setLabel("referenced by")
         .setStyle(ButtonStyle.Secondary)
     );
-  }
 
-  return row.components.length ? row : null;
-}
+    // Return either one row or many
+    return rows.some(r => r.components.length) ? rows : null;
+    }
+  }
 
 /**
  * Dropdown for all related packets
@@ -160,10 +183,12 @@ export function renderPacketCard(packet: Packet) {
   const components = [];
 
   const buttons = buildPrimaryButtons(packet);
-  if (buttons) components.push(buttons);
+  if (Array.isArray(buttons)) components.push(...buttons);
+  else components.push(buttons);
 
   const select = buildRelationSelect(packet);
-  if (select) components.push(select);
+  if (Array.isArray(select)) components.push(...select);
+  else components.push(select);
 
   return {
     embeds: [embed],
