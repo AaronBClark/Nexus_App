@@ -30,6 +30,7 @@ export async function handleShowBacklinksButton(ix: ButtonInteraction, payloadRa
     view.components = [...(view.components ?? []), row];
   }
   console.log("rows before:", view.components?.length);
+  console.log("backlinks count:", incoming.length, "unique:", fromIds.length, "options:", options.length);
   const payload = normalizeMessagePayload(view);
   console.log("rows after:", payload.components?.length);
   return ix.editReply(payload);

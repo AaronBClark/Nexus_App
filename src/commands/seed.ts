@@ -1,6 +1,6 @@
 import { SlashCommandBuilder } from "discord.js";
 import { getSeed, listSeeds, seedRegistry } from "../seeds/index.js";
-import { savePacket, getPacketById } from "../db/repo.js";
+import { savePacket, getPacketById, rebuildAllLinks } from "../db/repo.js";
 
 type SeedKind =
   | "template"
@@ -115,6 +115,11 @@ export const seedCommand = {
           failed.push(`${k}/${w}: ${e.message ?? e}`);
         }
       }
+    }
+    
+    if (seeded.length && overwrite) {
+      // optional: ensures links are consistent across all packets after overwrite seeding
+      rebuildAllLinks();
     }
 
     // Compact response

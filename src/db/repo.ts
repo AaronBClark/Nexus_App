@@ -1,4 +1,5 @@
 import { db } from "./index.js";
+import { extractOutgoingLinks } from "./linker.js";
 
 type PacketHeaderLike = {
   id: string;
@@ -18,14 +19,39 @@ export function savePacket(packet: any, opts?: { overwrite?: boolean }) {
     db.prepare(`
       INSERT OR REPLACE INTO objects (id, type, schema_version, packet_version, scope_level, visibility, element_id, created_at, updated_at, content_json)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(packet.id, packet.type, packet.schema_version, packet.packet_version, packet.scope.level, packet.publish.visibility, packet.scope.element_id, packet.created_at, packet.updated_at, JSON.stringify(packet));
+    `).run(
+      packet.id,
+      packet.type,
+      packet.schema_version,
+      packet.packet_version,
+      packet.scope.level,
+      packet.publish.visibility,
+      packet.scope.element_id,
+      packet.created_at,
+      packet.updated_at,
+      JSON.stringify(packet)
+    );
   } else {
-    // Strict insert: fail if exists
     db.prepare(`
       INSERT INTO objects (id, type, schema_version, packet_version, scope_level, visibility, element_id, created_at, updated_at, content_json)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(packet.id, packet.type, packet.schema_version, packet.packet_version, packet.scope.level, packet.publish.visibility, packet.scope.element_id,packet.created_at, packet.updated_at, JSON.stringify(packet));
+    `).run(
+      packet.id,
+      packet.type,
+      packet.schema_version,
+      packet.packet_version,
+      packet.scope.level,
+      packet.publish.visibility,
+      packet.scope.element_id,
+      packet.created_at,
+      packet.updated_at,
+      JSON.stringify(packet)
+    );
   }
+
+  // ✅ Graph indexing step (always)
+  const links = extractOutgoingLinks(packet);
+  replaceOutgoingLinks(packet.id, links, packet.created_at);
 }
 
 type ObjectRow = { content_json: string };
@@ -69,4 +95,30 @@ export function getObjectsByIds(ids: string[]) {
      FROM objects
      WHERE id IN (${placeholders})`
   ).all(...ids);
+}
+
+export function replaceOutgoingLinks(fromId: string, links: { rel: string; to_id: string }[], createdAt: string) {
+  const del = db.prepare(`DELETE FROM object_links WHERE from_id = ?`);
+  const ins = db.prepare(`
+    INSERT OR REPLACE INTO object_links (from_id, rel, to_id, created_at)
+    VALUES (?, ?, ?, ?)
+  `);
+
+  const tx = db.transaction(() => {
+    del.run(fromId);
+    for (const l of links) ins.run(fromId, l.rel, l.to_id, createdAt);
+  });
+
+  tx();
+}
+
+export function rebuildAllLinks() {
+  db.prepare(`DELETE FROM object_links`).run();
+
+  const rows = db.prepare(`SELECT content_json FROM objects`).all() as any[];
+  for (const r of rows) {
+    const packet = JSON.parse(r.content_json);
+    const links = extractOutgoingLinks(packet);
+    replaceOutgoingLinks(packet.id, links, packet.created_at);
+  }
 }
