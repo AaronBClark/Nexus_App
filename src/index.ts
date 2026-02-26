@@ -1,7 +1,7 @@
 import dotenv from "dotenv";
 import { client } from "./bot/client.js";
+import { routeComponentInteractions } from "./bot/router/componentRouter.js";
 import { routeCommandInteractions } from "./bot/router.commands.js";
-import { routeComponentInteractions } from "./bot/router.components.js";
 
 dotenv.config();
 
