@@ -12,30 +12,49 @@ export function seedAaronElement(authorUserId: string) {
     updated_at: now,
     status: "published",
 
-    scope: { level: "Team", element_id: "nx:el/aaron" },
+    scope: { level: "Solo", element_id: "nx:el/aaron" },
     publish: { visibility: "public", allow_mirroring: true },
-    authorship: { platform: "discord", user_id: authorUserId, attributed_element_id: "nx:el/aaron" },
+    authorship: {
+      platform: "discord",
+      user_id: authorUserId,
+      attributed_element_id: "nx:el/aaron",
+    },
     integrity: { content_hash: null, sig: null },
 
     relations: {
-      parent_id: "nx:el/uprising_underground", // simple link for now
+      parent_id: null, // optional “primary home”
+      member_of_ids: [
+        "nx:el/uprising_underground",   // membership in node (multi)
+      ],
+
       template_id: null,
+
+      // Optional ownership
       initiative_id: null,
       program_id: null,
       campaign_id: null,
+
+      // Subscriptions: “I participate in / follow these”
+      subscribed_initiative_ids: [
+        "nx:init/keeping-earth-beautiful",
+      ],
+      subscribed_program_ids: [],
+      subscribed_campaign_ids: [],
+
       related_ids: [],
     },
 
     deps: [],
-    labels: { title: "Aaron", tags: ["element", "person"] },
+    labels: { title: "Aaron Clark", tags: ["element", "person"] },
     refs: {},
 
     element: {
-      name: "Aaron",
-      handle: "the_uprising",
+      handle: "armalitus",             // stable alias / handle
+      name: "Aaron Clark",             // optional real/legal
+      display_name: "Armalitus",       // preferred public display
       element_type: "person",
-      summary: "Builder/maintainer (prototype stage).",
-      tags: ["maintainer"],
+      summary: "Coordinator/maintainer (prototype stage).",
+      tags: ["maintainer", "coordinator"],
       links: [],
       trust_index: {
         created_at: now,

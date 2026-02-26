@@ -73,13 +73,23 @@ export const PacketHeaderSchema = z.object({
     program_id: z.string().nullable().default(null),    // future: program
     campaign_id: z.string().nullable().default(null),   // future: campaign
     related_ids: z.array(z.string()).default([]),       // arbitrary links
-  }).default({
+    member_of_ids: z.array(z.string()).default([]),
+    subscribed_initiative_ids: z.array(z.string()).default([]),
+    subscribed_program_ids: z.array(z.string()).default([]),
+    subscribed_campaign_ids: z.array(z.string()).default([]),
+    steward_element_id: z.string().nullable().default(null)
+}).default({
     parent_id: null,
     template_id: null,
     initiative_id: null,
     program_id: null,
     campaign_id: null,
     related_ids: [],
+    member_of_ids: [],
+    subscribed_initiative_ids: [],
+    subscribed_program_ids: [],
+    subscribed_campaign_ids: [],
+    steward_element_id: null,
   }),
 
   // Dependencies (graph edges)

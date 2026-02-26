@@ -2,6 +2,7 @@ import type { Client, Interaction } from "discord.js";
 import { pingCommand } from "../commands/ping.js";
 import { listPacketsCommand } from "../commands/list-packets.js";
 import { seedCommand } from "../commands/seed.js";
+import { deletePacketCommand } from "../commands/delete-packet.js";
 
 export async function routeCommandInteractions(interaction: Interaction) {
   // Autocomplete first
@@ -21,6 +22,8 @@ export async function routeCommandInteractions(interaction: Interaction) {
       return seedCommand.execute(interaction);
     case "list-packets":
       return listPacketsCommand.execute(interaction);
+    case "delete-packet":
+      return deletePacketCommand.execute(interaction);
     default:
       return;
   }

@@ -122,3 +122,14 @@ export function rebuildAllLinks() {
     replaceOutgoingLinks(packet.id, links, packet.created_at);
   }
 }
+
+export function deletePacketById(id: string) {
+  const tx = db.transaction((objectId: string) => {
+    db.prepare(`DELETE FROM object_links WHERE from_id = ? OR to_id = ?`).run(objectId, objectId);
+    db.prepare(`DELETE FROM discord_refs WHERE object_id = ?`).run(objectId);
+    const res = db.prepare(`DELETE FROM objects WHERE id = ?`).run(objectId);
+    return res.changes; // 0 or 1
+  });
+
+  return tx(id);
+}

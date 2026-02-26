@@ -12,17 +12,31 @@ export function seedUprisingUndergroundElement(authorUserId: string) {
     updated_at: now,
     status: "published",
 
+    // A node element owns itself at Node scope
     scope: { level: "Node", element_id: "nx:el/uprising_underground" },
     publish: { visibility: "public", allow_mirroring: true },
-    authorship: { platform: "discord", user_id: authorUserId, attributed_element_id: "nx:el/uprising_underground" },
+    authorship: {
+      platform: "discord",
+      user_id: authorUserId,
+      attributed_element_id: "nx:el/aaron_clark", // who created/seeded it
+    },
     integrity: { content_hash: null, sig: null },
 
     relations: {
-      parent_id: null,
+      parent_id: null,                 // keep as "primary parent" (rarely used for nodes)
+      member_of_ids: [],               // nodes can be part of constellations later
       template_id: null,
+
+      // Ownership (optional)
       initiative_id: null,
       program_id: null,
       campaign_id: null,
+
+      // Subscriptions / participation (non-identity)
+      subscribed_initiative_ids: [],
+      subscribed_program_ids: [],
+      subscribed_campaign_ids: [],
+
       related_ids: [],
     },
 
@@ -31,8 +45,9 @@ export function seedUprisingUndergroundElement(authorUserId: string) {
     refs: {},
 
     element: {
-      name: "Uprising Underground",
       handle: "uprising_underground",
+      name: null,
+      display_name: "Uprising Underground",
       element_type: "node",
       summary: "A coordination node for Nexus prototypes and action architecture.",
       tags: ["nexus", "coordination"],

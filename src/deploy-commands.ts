@@ -3,13 +3,15 @@ import dotenv from "dotenv";
 import { pingCommand } from "./commands/ping.js";
 import { listPacketsCommand } from "./commands/list-packets.js";
 import { seedCommand } from "./commands/seed.js";
+import { deletePacketCommand } from "./commands/delete-packet.js";
 
 dotenv.config();
 
 const commands = [
   pingCommand.data.toJSON(),
   listPacketsCommand.data.toJSON(),
-  seedCommand.data.toJSON()
+  seedCommand.data.toJSON(),
+  deletePacketCommand.data.toJSON()
 ];
 
 const rest = new REST({ version: "10" }).setToken(process.env.DISCORD_TOKEN!);
