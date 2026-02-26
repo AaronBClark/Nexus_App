@@ -96,13 +96,10 @@ function collectRelations(packet: any): string[] {
  */
 function buildPrimaryButtons(packet: any) {
   const r = packet.relations;
-  const seenTargets = new Set<string>();
-
   if (!r) return null;
 
-  const rows: ActionRowBuilder<ButtonBuilder>[] = [
-    new ActionRowBuilder<ButtonBuilder>(),
-  ];
+  const seenTargets = new Set<string>();
+  const rows: ActionRowBuilder<ButtonBuilder>[] = [new ActionRowBuilder<ButtonBuilder>()];
 
   const addButton = (btn: ButtonBuilder) => {
     let row = rows[rows.length - 1];
@@ -122,29 +119,38 @@ function buildPrimaryButtons(packet: any) {
   ];
 
   for (const [key, label] of mapping) {
-        const val = r[key];
-        if (!val) continue;
-        if (seenTargets.has(val)) continue; // ✅ prevents duplicate customIds
-        seenTargets.add(val);
-
-        addButton(
-        new ButtonBuilder()
-            .setCustomId(`nx:view_packet_btn|${encodeId(val)}`)
-            .setLabel(label)
-            .setStyle(ButtonStyle.Secondary)
-        );
+    const val = r[key] as string | null | undefined;
+    if (!val) continue;
+    if (seenTargets.has(val)) continue;
+    seenTargets.add(val);
 
     addButton(
-        new ButtonBuilder()
-        .setCustomId(`nx:show_backlinks|${encodeId(packet.id)}`)
-        .setLabel("referenced by")
+      new ButtonBuilder()
+        .setCustomId(`nx:view_packet_btn|${encodeId(val)}`)
+        .setLabel(label)
         .setStyle(ButtonStyle.Secondary)
     );
-
-    // Return either one row or many
-    return rows.some(r => r.components.length) ? rows : null;
-    }
   }
+
+  // Add "referenced by" ONCE
+  addButton(
+    new ButtonBuilder()
+      .setCustomId(`nx:show_backlinks|${encodeId(packet.id)}`)
+      .setLabel("referenced by")
+      .setStyle(ButtonStyle.Secondary)
+  );
+
+  // (Optional) Add "show relations" ONCE
+  addButton(
+    new ButtonBuilder()
+      .setCustomId(`nx:show_relations|${encodeId(packet.id)}`)
+      .setLabel("relations")
+      .setStyle(ButtonStyle.Secondary)
+  );
+
+  const nonEmpty = rows.filter((row) => row.components.length > 0);
+  return nonEmpty.length ? nonEmpty : null;
+}
 
 /**
  * Dropdown for all related packets
@@ -176,21 +182,19 @@ export function renderPacketCard(packet: Packet) {
   const embed = basePacketEmbed(packet);
 
   const section = getPrimarySection(packet);
-  if (section) {
-    addFieldsFromSection(embed, section);
-  }
+  if (section) addFieldsFromSection(embed, section);
 
-  const components = [];
+  const components: any[] = [];
 
   const buttons = buildPrimaryButtons(packet);
   if (Array.isArray(buttons)) components.push(...buttons);
-  else components.push(buttons);
+  else if (buttons) components.push(buttons);
 
   const select = buildRelationSelect(packet);
-  if (Array.isArray(select)) components.push(...select);
-  else components.push(select);
+  if (select) components.push(select);
 
   return {
+    content: `📦 Viewing: \`${packet.id}\``,
     embeds: [embed],
     components,
   };
