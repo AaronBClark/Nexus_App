@@ -1,4 +1,4 @@
-import { getObjectsByIds } from "../../../db/repo.js";
+/*import { getObjectsByIds } from "../../../db/repo.js";
 
 export function toStringIds(ids: any[], max = 25): string[] {
   return [...new Set(ids.map((x) => String(x)))].slice(0, max);
@@ -27,4 +27,4 @@ export function buildSelectOptionsFromObjectRows(ids: string[], rows: any[]) {
 export function buildSelectOptionsByIds(ids: string[]) {
   const objs = getObjectsByIds(ids);
   return buildSelectOptionsFromObjectRows(ids, objs);
-}
+}*/

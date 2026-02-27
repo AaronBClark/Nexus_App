@@ -1,24 +1,20 @@
 import type { InteractionReplyOptions } from "discord.js";
-import type { Interaction } from "discord.js";
+import { listIncomingLinks, listOutgoingLinks } from "../../../db/repo.js";
 import { renderPacket } from "../../../ui/renderers/index.js";
 import { normalizeMessagePayload } from "../../../ui/discordPayload.js";
-import { listIncomingLinks, listOutgoingLinks } from "../../../db/repo.js";
-
-function uniqLimit(ids: string[], limit: number) {
-  return [...new Set(ids)].slice(0, limit);
-}
+import { buildSelectOptionsFromLinks } from "./options.js"; // adjust path
 
 export async function renderAndEdit(ix: any, packet: any) {
-  const outgoing = listOutgoingLinks(packet.id);
-  const incoming = listIncomingLinks(packet.id);
+  const outgoing:any = listOutgoingLinks(packet.id);   // [{ rel, to_id }]
+  const incoming:any = listIncomingLinks(packet.id);   // [{ rel, from_id }]
 
-  const outgoingIds = uniqLimit(outgoing.map((x: any) => String(x.to_id)), 25);
-  const incomingIds = uniqLimit(incoming.map((x: any) => String(x.from_id)), 25);
+  const outgoingOpts = buildSelectOptionsFromLinks(outgoing, "outgoing");
+  const incomingOpts = buildSelectOptionsFromLinks(incoming, "incoming");
 
-  const view = renderPacket(packet, { outgoingIds, incomingIds });
+  const view = renderPacket(packet, {
+    outgoing: outgoingOpts,
+    incoming: incomingOpts,
+  });
 
-  // Optional: update message content too
-  (view as any).content = `Viewing: \`${packet.id}\``;
-
-  return ix.editReply(normalizeMessagePayload(view));
+  return ix.editReply(normalizeMessagePayload(view) as InteractionReplyOptions);
 }

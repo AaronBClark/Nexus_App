@@ -1,10 +1,10 @@
 import { ActionRowBuilder, StringSelectMenuBuilder, type ButtonInteraction } from "discord.js";
-import { packetIdCodec } from "../../../ui/components/packetCard.js";
 import { getPacketById, listIncomingLinks } from "../../../db/repo.js";
 import { normalizeMessagePayload } from "../../../ui/discordPayload.js";
 import { renderPacket } from "../../../ui/renderers/index.js";
-import { buildSelectOptionsByIds, toStringIds } from "../shared/optionsFromIds.js";
-import { getButtonTargets } from "../shared/buttonTargets.js";
+import { buildSelectOptionsFromLinks } from "../shared/options.js";
+import { getCustomIdSafe } from "../parseCustomId.js";
+
 
 function stripMenuByPrefix(components: any[] | undefined, prefix: string) {
   if (!components?.length) return components ?? [];
@@ -16,21 +16,15 @@ function stripMenuByPrefix(components: any[] | undefined, prefix: string) {
 }
 
 export async function handleShowBacklinksButton(ix: ButtonInteraction, payloadRaw: string) {
-  const targetId = packetIdCodec.decode(payloadRaw);
+  const targetId = getCustomIdSafe(ix);
   const target = await getPacketById(targetId);
 
   if (!target) {
     return ix.editReply({ content: `Not found: ${targetId}`, embeds: [], components: [] });
   }
 
-  const incoming = listIncomingLinks(targetId); // [{ rel, from_id }]
-  const fromIdsRaw = incoming.map((x: any) => String(x.from_id));
-
-  // Optional dedupe against primary relations (prevents “backlink menu shows the same thing you already have buttons for”)
-  const primary = getButtonTargets(target);
-  const fromIds = toStringIds(fromIdsRaw.filter((id) => !primary.has(id)), 25);
-
-  const options = buildSelectOptionsByIds(fromIds);
+  const incoming:any = listIncomingLinks(targetId); // [{ rel, from_id }]
+  const options = buildSelectOptionsFromLinks(incoming, "incoming");
   const view = renderPacket(target);
 
   // ✅ remove old backlinks menu before adding a new one (prevents stacking)

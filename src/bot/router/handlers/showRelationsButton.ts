@@ -1,10 +1,9 @@
 import { ActionRowBuilder, StringSelectMenuBuilder, type ButtonInteraction } from "discord.js";
-import { packetIdCodec } from "../../../ui/components/packetCard.js";
 import { getPacketById, listOutgoingLinks } from "../../../db/repo.js";
 import { normalizeMessagePayload } from "../../../ui/discordPayload.js";
 import { renderPacket } from "../../../ui/renderers/index.js";
-import { buildSelectOptionsByIds, toStringIds } from "../shared/optionsFromIds.js";
-import { getButtonTargets } from "../shared/buttonTargets.js";
+import { buildSelectOptionsFromLinks } from "../shared/options.js";
+import { getCustomIdSafe } from "../parseCustomId.js";
 
 function stripMenuByPrefix(components: any[] | undefined, prefix: string) {
   if (!components?.length) return components ?? [];
@@ -16,24 +15,16 @@ function stripMenuByPrefix(components: any[] | undefined, prefix: string) {
 }
 
 export async function handleShowRelationsButton(ix: ButtonInteraction, payloadRaw: string) {
-  const targetId = packetIdCodec.decode(payloadRaw);
+  const targetId = getCustomIdSafe(ix);
   const target = await getPacketById(targetId);
 
   if (!target) {
     return ix.editReply({ content: `Not found: ${targetId}`, embeds: [], components: [] });
   }
 
-  const outgoing = listOutgoingLinks(targetId); // [{ rel, to_id }]
-  const primary = getButtonTargets(target);
+  const outgoing:any = listOutgoingLinks(targetId); // [{ rel, to_id }]
+  const options = buildSelectOptionsFromLinks(outgoing, "outgoing");
 
-  // ✅ dedupe + exclude primary targets already shown as buttons
-  const toIdsRaw = outgoing.map((x: any) => String(x.to_id));
-  const toIds = toStringIds(
-    [...new Set(toIdsRaw)].filter((id) => id && !primary.has(id)),
-    25
-  );
-
-  const options = buildSelectOptionsByIds(toIds);
   const view = renderPacket(target);
 
   // ✅ remove old relations menu before adding new

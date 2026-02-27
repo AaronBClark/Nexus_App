@@ -1,10 +1,11 @@
 import type { ButtonInteraction } from "discord.js";
-import { packetIdCodec } from "../../../ui/components/packetCard.js";
 import { getPacketById } from "../../../db/repo.js";
 import { renderAndEdit } from "../shared/renderAndEdit.js";
+import { getCustomIdSafe } from "../parseCustomId.js";
+
 
 export async function handleViewPacketButton(ix: ButtonInteraction, payloadRaw: string) {
-  const packetId = packetIdCodec.decode(payloadRaw);
+  const packetId = getCustomIdSafe(ix);
   const packet = await getPacketById(packetId);
 
   if (!packet) {
