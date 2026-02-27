@@ -4,6 +4,16 @@ import { getPacketById, listOutgoingLinks } from "../../../db/repo.js";
 import { normalizeMessagePayload } from "../../../ui/discordPayload.js";
 import { renderPacket } from "../../../ui/renderers/index.js";
 import { buildSelectOptionsByIds, toStringIds } from "../shared/optionsFromIds.js";
+import { getButtonTargets } from "../shared/buttonTargets.js";
+
+function stripMenuByPrefix(components: any[] | undefined, prefix: string) {
+  if (!components?.length) return components ?? [];
+  return components.filter((row: any) => {
+    const c0 = row?.components?.[0];
+    const id = c0?.custom_id ?? c0?.data?.custom_id;
+    return !(typeof id === "string" && id.startsWith(prefix));
+  });
+}
 
 export async function handleShowRelationsButton(ix: ButtonInteraction, payloadRaw: string) {
   const targetId = packetIdCodec.decode(payloadRaw);
@@ -14,21 +24,36 @@ export async function handleShowRelationsButton(ix: ButtonInteraction, payloadRa
   }
 
   const outgoing = listOutgoingLinks(targetId); // [{ rel, to_id }]
-  const toIds = toStringIds(outgoing.map((x: any) => x.to_id), 25);
-  const options = buildSelectOptionsByIds(toIds);
+  const primary = getButtonTargets(target);
 
+  // ✅ dedupe + exclude primary targets already shown as buttons
+  const toIdsRaw = outgoing.map((x: any) => String(x.to_id));
+  const toIds = toStringIds(
+    [...new Set(toIdsRaw)].filter((id) => id && !primary.has(id)),
+    25
+  );
+
+  const options = buildSelectOptionsByIds(toIds);
   const view = renderPacket(target);
 
-  if (options.length) {
-    const nonce = Date.now().toString(36);
-    const menu = new StringSelectMenuBuilder()
-      .setCustomId(`nx:view_packet_select|relations|${nonce}`)
-      .setPlaceholder("Outgoing relations...")
-      .addOptions(options);
+  // ✅ remove old relations menu before adding new
+  view.components = stripMenuByPrefix(view.components, "nx:view_packet_select|relations|");
 
-    const row = new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(menu);
-    view.components = [...(view.components ?? []), row];
+  if (!options.length) {
+        return ix.editReply(normalizeMessagePayload({
+        content: `Viewing: \`${target.id}\``,
+        ...view
+        }));
   }
+
+  const nonce = Date.now().toString(36);
+  const menu = new StringSelectMenuBuilder()
+    .setCustomId(`nx:view_packet_select|relations|${nonce}`)
+    .setPlaceholder(`Outgoing links (${options.length})…`)
+    .addOptions(options);
+
+  const row = new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(menu);
+  view.components = [...(view.components ?? []), row];
 
   return ix.editReply(normalizeMessagePayload(view));
 }

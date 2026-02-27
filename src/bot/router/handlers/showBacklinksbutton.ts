@@ -4,6 +4,16 @@ import { getPacketById, listIncomingLinks } from "../../../db/repo.js";
 import { normalizeMessagePayload } from "../../../ui/discordPayload.js";
 import { renderPacket } from "../../../ui/renderers/index.js";
 import { buildSelectOptionsByIds, toStringIds } from "../shared/optionsFromIds.js";
+import { getButtonTargets } from "../shared/buttonTargets.js";
+
+function stripMenuByPrefix(components: any[] | undefined, prefix: string) {
+  if (!components?.length) return components ?? [];
+  return components.filter((row: any) => {
+    const c0 = row?.components?.[0];
+    const id = c0?.custom_id ?? c0?.data?.custom_id; // covers raw vs builders
+    return !(typeof id === "string" && id.startsWith(prefix));
+  });
+}
 
 export async function handleShowBacklinksButton(ix: ButtonInteraction, payloadRaw: string) {
   const targetId = packetIdCodec.decode(payloadRaw);
@@ -14,24 +24,36 @@ export async function handleShowBacklinksButton(ix: ButtonInteraction, payloadRa
   }
 
   const incoming = listIncomingLinks(targetId); // [{ rel, from_id }]
-  const fromIds = toStringIds(incoming.map((x: any) => x.from_id), 25);
-  const options = buildSelectOptionsByIds(fromIds);
+  const fromIdsRaw = incoming.map((x: any) => String(x.from_id));
 
+  // Optional dedupe against primary relations (prevents “backlink menu shows the same thing you already have buttons for”)
+  const primary = getButtonTargets(target);
+  const fromIds = toStringIds(fromIdsRaw.filter((id) => !primary.has(id)), 25);
+
+  const options = buildSelectOptionsByIds(fromIds);
   const view = renderPacket(target);
 
-  if (options.length) {
-    const nonce = Date.now().toString(36);
-    const menu = new StringSelectMenuBuilder()
-      .setCustomId(`nx:view_packet_select|backlinks|${nonce}`)
-      .setPlaceholder("Referenced by...")
-      .addOptions(options);
+  // ✅ remove old backlinks menu before adding a new one (prevents stacking)
+  view.components = stripMenuByPrefix(view.components, "nx:view_packet_select|backlinks|");
 
-    const row = new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(menu);
-    view.components = [...(view.components ?? []), row];
+  // ✅ empty state (no more “button does nothing”)
+  if (!options.length) {
+    const payload = normalizeMessagePayload(view);
+    return ix.editReply(normalizeMessagePayload({
+        content: `Viewing: \`${target.id}\``,
+        ...payload
+        }));
   }
-  console.log("rows before:", view.components?.length);
-  console.log("backlinks count:", incoming.length, "unique:", fromIds.length, "options:", options.length);
+
+  const nonce = Date.now().toString(36);
+  const menu = new StringSelectMenuBuilder()
+    .setCustomId(`nx:view_packet_select|backlinks|${nonce}`)
+    .setPlaceholder(`Referenced by (${options.length})…`)
+    .addOptions(options);
+
+  const row = new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(menu);
+  view.components = [...(view.components ?? []), row];
+
   const payload = normalizeMessagePayload(view);
-  console.log("rows after:", payload.components?.length);
   return ix.editReply(payload);
 }

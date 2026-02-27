@@ -18,7 +18,7 @@ export function seedUprisingUndergroundElement(authorUserId: string) {
     authorship: {
       platform: "discord",
       user_id: authorUserId,
-      attributed_element_id: "nx:el/aaron_clark", // who created/seeded it
+      attributed_element_id: "nx:el/aaron", // who created/seeded it
     },
     integrity: { content_hash: null, sig: null },
 

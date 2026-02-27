@@ -51,6 +51,10 @@ export function extractOutgoingLinks(packet: any): ObjectLink[] {
   addMany(out, "initiative", r.initiative_ids);
   addMany(out, "program", r.program_ids);
   addMany(out, "campaign", r.campaign_ids);
+  addMany(out, "member_of", r.member_of_ids);
+  addMany(out, "sub_initiative", r.subscribed_initiative_ids);
+  addMany(out, "sub_program", r.subscribed_program_ids);
+  addMany(out, "sub_campaign", r.subscribed_campaign_ids);
 
   // arbitrary links
   addMany(out, "related", r.related_ids);
