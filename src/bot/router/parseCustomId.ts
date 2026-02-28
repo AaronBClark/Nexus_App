@@ -1,3 +1,4 @@
+// parseCustomId.ts
 import type { Interaction } from "discord.js";
 
 export function getCustomIdSafe(ix: Interaction): string {
@@ -5,10 +6,6 @@ export function getCustomIdSafe(ix: Interaction): string {
   return "";
 }
 
-/**
- * Prefer: action|payload|nonce...
- * But tolerate older: nx:action:Suffix
- */
 export function parseAction(customId: string): string {
   const left = customId.split("|", 1)[0];
   const parts = left.split(":");
@@ -22,4 +19,15 @@ export function splitPipe(customId: string): {
 } {
   const [actionRaw, payloadRaw = "", ...rest] = customId.split("|");
   return { actionRaw, payloadRaw, rest };
+}
+
+export function encodeId(id: string): string {
+  return Buffer.from(id).toString("base64url");
+}
+export function decodeId(encoded: string): string {
+  return Buffer.from(encoded, "base64url").toString("utf8");
+}
+
+export function trunc(s: string, n: number) {
+  return s.length > n ? s.slice(0, n - 1) + "…" : s;
 }
