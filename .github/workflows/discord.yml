@@ -37,10 +37,7 @@ jobs:
             exit 1
           fi
 
-          # Latest commit info from the checked-out ref (works for both push + manual)
           COMMIT_SHA="$(git rev-parse HEAD)"
-          COMMIT_MSG="$(git log -1 --pretty=%s)"
-          COMMIT_AUTHOR="$(git log -1 --pretty=%an)"
           COMMIT_URL="${REPO_URL}/commit/${COMMIT_SHA}"
 
           # Build compare URL when possible (push event has before/after)
@@ -49,23 +46,20 @@ jobs:
             COMPARE_URL="${REPO_URL}/compare/${BEFORE}...${AFTER}"
           fi
 
-          # Collect up to 5 commits for push events, otherwise just the latest
-          COMMITS_TEXT=""
-          if [ "${EVENT_NAME}" = "push" ]; then
-            if [ -n "$COMPARE_URL" ]; then
-              COMMITS_TEXT="$(git log --pretty='- %s (%h)' "${BEFORE}..${AFTER}" | head -n 10 || true)"
-            else
-              COMMITS_TEXT="$(git log -5 --pretty='- %s (%h)' || true)"
-            fi
+          # Collect commits (up to 10) with FULL message body using %B.
+          # We'll delimit records so Python can parse reliably.
+          COMMITS_RAW=""
+          if [ "${EVENT_NAME}" = "push" ] && [ -n "${BEFORE:-}" ] && [ -n "${AFTER:-}" ]; then
+            # Range excludes BEFORE, includes AFTER
+            COMMITS_RAW="$(git log "${BEFORE}..${AFTER}" -n 10 --pretty=format:'%H%x1f%an%x1f%B%x1e' || true)"
           else
-            COMMITS_TEXT="- ${COMMIT_MSG} ($(git rev-parse --short HEAD))"
+            COMMITS_RAW="$(git log -n 1 --pretty=format:'%H%x1f%an%x1f%B%x1e' || true)"
           fi
 
-          # Make shell vars visible to Python
-          export COMMIT_SHA COMMIT_MSG COMMIT_AUTHOR COMMIT_URL COMPARE_URL COMMITS_TEXT
+          export COMMIT_SHA COMMIT_URL COMPARE_URL COMMITS_RAW
 
           python3 - <<'PY' > payload.json
-          import json, os
+          import json, os, re
 
           repo = os.environ["REPO"]
           ref = os.environ["REF_NAME"]
@@ -73,32 +67,91 @@ jobs:
           repo_url = os.environ["REPO_URL"]
 
           commit_sha = os.environ["COMMIT_SHA"]
-          commit_msg = os.environ["COMMIT_MSG"]
-          commit_author = os.environ["COMMIT_AUTHOR"]
-          commit_url = os.environ["COMMIT_URL"]
+          commit_url_latest = os.environ["COMMIT_URL"]
           compare_url = os.environ.get("COMPARE_URL", "")
-          commits_text = os.environ.get("COMMITS_TEXT", "")
+          commits_raw = os.environ.get("COMMITS_RAW", "")
 
-          title = f"{repo} • {event} • {ref}"
+          # Discord embed limits (conservative)
+          EMBED_DESC_MAX = 4096
+          FIELD_VALUE_MAX = 1024
+          TITLE_MAX = 256
+          MAX_FIELDS = 25
 
-          lines = [
-              f"**Latest:** [{commit_msg}]({commit_url})",
-              f"**Author:** {commit_author}",
+          def squash_ws(s: str) -> str:
+            # normalize excessive blank lines
+            s = s.replace("\r\n", "\n").replace("\r", "\n")
+            s = re.sub(r"\n{3,}", "\n\n", s)
+            return s.strip()
+
+          def trunc(s: str, max_len: int) -> str:
+            if len(s) <= max_len:
+              return s
+            return s[: max_len - 1] + "…"
+
+          # Parse records split by 0x1e, fields split by 0x1f
+          commits = []
+          for rec in commits_raw.split("\x1e"):
+            if not rec.strip():
+              continue
+            parts = rec.split("\x1f")
+            if len(parts) < 3:
+              continue
+            sha, author, body = parts[0].strip(), parts[1].strip(), parts[2]
+            body = squash_ws(body)
+            # subject is first line
+            subject = body.split("\n", 1)[0] if body else "(no message)"
+            rest = body[len(subject):].lstrip("\n") if body else ""
+            commits.append({
+              "sha": sha,
+              "short": sha[:7],
+              "author": author or "Unknown",
+              "subject": subject,
+              "body": rest,
+              "url": f"{repo_url}/commit/{sha}",
+            })
+
+          latest = commits[0] if commits else {"subject": "(none)", "author": "Unknown", "url": commit_url_latest, "sha": commit_sha, "short": commit_sha[:7], "body": ""}
+
+          title = trunc(f"{repo} • {event} • {ref}", TITLE_MAX)
+
+          # Build fields. Each commit gets one field (up to 10), with full message (subject + body).
+          fields = []
+          for c in commits[:10]:
+            # Render message with subject + body. Body can be long; clamp per field.
+            msg = c["subject"]
+            if c["body"]:
+              msg += "\n" + c["body"]
+            msg = squash_ws(msg)
+
+            # Put author + sha in the field name to keep value cleaner
+            field_name = trunc(f"{c['short']} • {c['author']}", 256)
+
+            # Value includes link + message
+            value = f"[View commit]({c['url']})\n{msg}"
+            value = trunc(value, FIELD_VALUE_MAX)
+
+            fields.append({"name": field_name, "value": value, "inline": False})
+            if len(fields) >= MAX_FIELDS:
+              break
+
+          # Description: latest + compare link
+          desc_lines = [
+            f"**Latest:** [{latest['subject']}]({latest['url']})",
+            f"**Author:** {latest['author']}",
           ]
           if compare_url:
-              lines.append(f"**Compare:** {compare_url}")
-          lines += ["", "**Commits:**", commits_text or "- (none)"]
+            desc_lines.append(f"**Compare:** {compare_url}")
+          description = trunc("\n".join(desc_lines), EMBED_DESC_MAX)
 
           payload = {
-              "embeds": [{
-                  "title": title,
-                  # Click goes to compare when available, else repo
-                  "url": compare_url or repo_url,
-                  "description": "\n".join(lines),
-                  "footer": {"text": f"SHA: {commit_sha}"},
-                  # Subtle color: green for push, blurple for manual
-                  "color": 0x57F287 if event == "push" else 0x5865F2,
-              }]
+            "embeds": [{
+              "title": title,
+              "url": compare_url or repo_url,
+              "description": description,
+              "fields": fields if fields else [{"name": "Commits", "value": "- (none)", "inline": False}],
+              "footer": {"text": f"SHA: {commit_sha}"},
+              "color": 0x57F287 if event == "push" else 0x5865F2,
+            }]
           }
 
           print(json.dumps(payload))
