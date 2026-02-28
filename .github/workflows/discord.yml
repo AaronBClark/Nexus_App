@@ -60,100 +60,105 @@ jobs:
 
           python3 - <<'PY' > payload.json
           import json, os, re
-
+          
           repo = os.environ["REPO"]
           ref = os.environ["REF_NAME"]
           event = os.environ["EVENT_NAME"]
           repo_url = os.environ["REPO_URL"]
-
+          
           commit_sha = os.environ["COMMIT_SHA"]
-          commit_url_latest = os.environ["COMMIT_URL"]
           compare_url = os.environ.get("COMPARE_URL", "")
           commits_raw = os.environ.get("COMMITS_RAW", "")
-
-          # Discord embed limits (conservative)
+          
           EMBED_DESC_MAX = 4096
-          FIELD_VALUE_MAX = 1024
           TITLE_MAX = 256
-          MAX_FIELDS = 25
-
+          
+          DIVIDER = "────────────"
+          
           def squash_ws(s: str) -> str:
-            # normalize excessive blank lines
-            s = s.replace("\r\n", "\n").replace("\r", "\n")
-            s = re.sub(r"\n{3,}", "\n\n", s)
-            return s.strip()
-
+              s = s.replace("\r\n", "\n").replace("\r", "\n")
+              s = re.sub(r"\n{3,}", "\n\n", s)
+              return s.strip()
+          
           def trunc(s: str, max_len: int) -> str:
-            if len(s) <= max_len:
-              return s
-            return s[: max_len - 1] + "…"
-
+              if len(s) <= max_len:
+                  return s
+              return s[: max_len - 1] + "…"
+          
           # Parse records split by 0x1e, fields split by 0x1f
           commits = []
           for rec in commits_raw.split("\x1e"):
-            if not rec.strip():
-              continue
-            parts = rec.split("\x1f")
-            if len(parts) < 3:
-              continue
-            sha, author, body = parts[0].strip(), parts[1].strip(), parts[2]
-            body = squash_ws(body)
-            # subject is first line
-            subject = body.split("\n", 1)[0] if body else "(no message)"
-            rest = body[len(subject):].lstrip("\n") if body else ""
-            commits.append({
-              "sha": sha,
-              "short": sha[:7],
-              "author": author or "Unknown",
-              "subject": subject,
-              "body": rest,
-              "url": f"{repo_url}/commit/{sha}",
-            })
-
-          latest = commits[0] if commits else {"subject": "(none)", "author": "Unknown", "url": commit_url_latest, "sha": commit_sha, "short": commit_sha[:7], "body": ""}
-
+              if not rec.strip():
+                  continue
+              parts = rec.split("\x1f")
+              if len(parts) < 3:
+                  continue
+              sha, author, body = parts[0].strip(), parts[1].strip(), parts[2]
+              body = squash_ws(body)
+              subject = body.split("\n", 1)[0] if body else "(no message)"
+              rest = body[len(subject):].lstrip("\n") if body else ""
+              commits.append({
+                  "sha": sha,
+                  "short": sha[:7],
+                  "author": author or "Unknown",
+                  "subject": subject,
+                  "body": rest,
+                  "url": f"{repo_url}/commit/{sha}",
+              })
+          
+          latest = commits[0] if commits else {"subject":"(none)","author":"Unknown","url":repo_url,"short":commit_sha[:7], "body":""}
+          
           title = trunc(f"{repo} • {event} • {ref}", TITLE_MAX)
-
-          # Build fields. Each commit gets one field (up to 10), with full message (subject + body).
-          fields = []
-          for c in commits[:10]:
-            # Render message with subject + body. Body can be long; clamp per field.
-            msg = c["subject"]
-            if c["body"]:
-              msg += "\n" + c["body"]
-            msg = squash_ws(msg)
-
-            # Put author + sha in the field name to keep value cleaner
-            field_name = trunc(f"{c['short']} • {c['author']}", 256)
-
-            # Value includes link + message
-            value = f"[View commit]({c['url']})\n{msg}"
-            value = trunc(value, FIELD_VALUE_MAX)
-
-            fields.append({"name": field_name, "value": value, "inline": False})
-            if len(fields) >= MAX_FIELDS:
-              break
-
-          # Description: latest + compare link
-          desc_lines = [
-            f"**Latest:** [{latest['subject']}]({latest['url']})",
-            f"**Author:** {latest['author']}",
+          
+          # Header lines
+          lines = [
+              f"**Latest:** [{latest['subject']}]({latest['url']})",
+              f"**Author:** {latest['author']}",
           ]
           if compare_url:
-            desc_lines.append(f"**Compare:** {compare_url}")
-          description = trunc("\n".join(desc_lines), EMBED_DESC_MAX)
-
+              lines.append(f"**Compare:** {compare_url}")
+          
+          # Commit list
+          lines.append("")
+          lines.append("**Commits:**")
+          
+          # Build commit blocks until we hit embed limit
+          for i, c in enumerate(commits[:10]):
+              # Bold subject, keep SHA + author secondary
+              block = [f"**{c['subject']}** (`{c['short']}`) by {c['author']}"]
+              # Optional: include body, indented
+              if c["body"]:
+                  # Keep bodies readable, but don’t let them dominate
+                  body = c["body"]
+                  # Trim extreme bodies early (still overall clamped later)
+                  body = trunc(body, 700)
+                  # Indent body lines for scanability
+                  body = "\n".join("  " + ln for ln in body.split("\n"))
+                  block.append(body)
+              # Add a link line (small + consistent target)
+              block.append(f"[view commit]({c['url']})")
+          
+              # Add divider between commits (not after last)
+              if i < min(len(commits), 10) - 1:
+                  block.append(DIVIDER)
+          
+              candidate = "\n".join(lines + ["", "\n".join(block)])
+              if len(candidate) > EMBED_DESC_MAX:
+                  break
+              lines += ["", "\n".join(block)]
+          
+          description = trunc("\n".join(lines), EMBED_DESC_MAX)
+          
           payload = {
-            "embeds": [{
-              "title": title,
-              "url": compare_url or repo_url,
-              "description": description,
-              "fields": fields if fields else [{"name": "Commits", "value": "- (none)", "inline": False}],
-              "footer": {"text": f"SHA: {commit_sha}"},
-              "color": 0x57F287 if event == "push" else 0x5865F2,
-            }]
+              "embeds": [{
+                  "title": title,
+                  "url": compare_url or repo_url,
+                  "description": description,
+                  "footer": {"text": f"SHA: {commit_sha}"},
+                  "color": 0x57F287 if event == "push" else 0x5865F2,
+              }]
           }
-
+          
           print(json.dumps(payload))
           PY
 
