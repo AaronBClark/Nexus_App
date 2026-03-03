@@ -1,4 +1,4 @@
-# Nexus DAN
+# Nexus
 ## A Decentralized Action Network
 
 **Nexus is an open-source, antifragile coordination system for turning shared perception into collective decision-making and real-world action.**
