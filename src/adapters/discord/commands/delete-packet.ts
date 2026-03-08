@@ -1,5 +1,5 @@
 import { SlashCommandBuilder } from "discord.js";
-import { deletePacketById, getPacketById } from "../db/repo.js";
+import { deletePacketById, getPacketById } from "../../../db/repo.js";
 
 export const deletePacketCommand = {
   data: new SlashCommandBuilder()

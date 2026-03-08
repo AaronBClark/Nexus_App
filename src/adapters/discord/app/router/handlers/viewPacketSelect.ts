@@ -1,7 +1,7 @@
 import type { StringSelectMenuInteraction } from "discord.js";
-import { getPacketById } from "../../../db/repo.js";
+import { getPacketById } from "../../../../../db/repo.js";
 import { renderAndEdit } from "../shared/renderAndEdit.js";
-import { decodeLinkOptionValue } from "../../../adapters/discord/views/linkOptions.js";
+import { decodeLinkOptionValue } from "../../../views/linkOptions.js";
 
 function extractSelectedPacketId(raw: string): string {
   // Link menu values are encoded as direction|rel|id

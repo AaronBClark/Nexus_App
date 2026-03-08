@@ -1,6 +1,6 @@
 import { SlashCommandBuilder } from "discord.js";
-import { getSeed, listSeeds, seedRegistry } from "../seeds/index.js";
-import { savePacket, getPacketById, rebuildAllLinks } from "../db/repo.js";
+import { getSeed, listSeeds, seedRegistry } from "../../../core/seeds/index.js";
+import { savePacket, getPacketById, rebuildAllLinks } from "../../../db/repo.js";
 
 type SeedKind =
   | "template"

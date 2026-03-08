@@ -1,5 +1,5 @@
 import type { ButtonInteraction } from "discord.js";
-import { getPacketById } from "../../../db/repo.js";
+import { getPacketById } from "../../../../../db/repo.js";
 import { renderAndEdit } from "../shared/renderAndEdit.js";
 import { getCustomIdSafe } from "../parseCustomId.js";
 

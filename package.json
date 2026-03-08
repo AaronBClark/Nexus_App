@@ -3,10 +3,10 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "dev": "tsx watch src/index.ts",
-    "deploy": "tsx src/deploy-commands.ts",
+    "dev": "tsx watch src/adapters/discord/index.ts",
+    "deploy": "tsx src/adapters/discord/deploy-commands.ts",
     "build": "tsc",
-    "start": "node dist/index.js"
+    "start": "node dist/adapters/discord/index.js"
   },
   "dependencies": {
     "better-sqlite3": "^12.6.2",

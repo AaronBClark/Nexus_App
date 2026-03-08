@@ -1,9 +1,9 @@
 // src/bot/handlers/buttons/viewPacketPage.ts
 import type { ButtonInteraction } from "discord.js";
-import { renderPacketCard } from "../../../adapters/discord/views/renderPacketCard.js";
-import { toDiscordLinkOptions } from "../../../adapters/discord/views/linkOptions.js";
-import { getPacketById } from "../../../db/repo.js";
-import { getPacketLinks } from "../../../core/graph/getPacketLinks.js";
+import { renderPacketCard } from "../../../views/renderPacketCard.js";
+import { toDiscordLinkOptions } from "../../../views/linkOptions.js";
+import { getPacketById } from "../../../../../db/repo.js";
+import { getPacketLinks } from "../../../../../core/graph/getPacketLinks.js";
 
 export async function handleViewPacketPageButton(interaction: ButtonInteraction) {
   const parts = interaction.customId.split("|");

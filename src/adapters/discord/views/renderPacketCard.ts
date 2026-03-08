@@ -7,7 +7,7 @@ import {
   type SelectMenuComponentOptionData,
 } from "discord.js";
 import { basePacketEmbed } from "./packetEmbed.js";
-import type { Packet } from "../../../packets/types.js";
+import type { Packet } from "../../../core/packets/types.js";
 import { flattenPacket } from "../../../core/view/flattenPacket.js";
 
 function encodeId(id: string): string {

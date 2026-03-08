@@ -1,6 +1,6 @@
 import { SlashCommandBuilder, ActionRowBuilder, StringSelectMenuBuilder } from "discord.js";
-import { listPacketsByType } from "../db/repo.js";
-import { CUSTOM_ID } from "../bot/customIds.js";
+import { listPacketsByType } from "../../../db/repo.js";
+import { CUSTOM_ID } from "../app/customIds.js";
 
 export const listPacketsCommand = {
   data: new SlashCommandBuilder()
