@@ -107,7 +107,7 @@ export function renderPacketCard(
   opts?: { page?: number; perPage?: number }
 ) {
   const page = opts?.page ?? 0;
-  const perPage = opts?.perPage ?? 30; // tune later
+  const perPage = opts?.perPage ?? 40; // tune later
 
   const { headerLines, bodyLines } = flattenPacket(packet as any);
 
