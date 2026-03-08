@@ -3,3 +3,6 @@ node_modules
 zip
 data
 dist
+data/nexus.sqlite-shm
+data/nexus.sqlite
+data/nexus.sqlite-wal
