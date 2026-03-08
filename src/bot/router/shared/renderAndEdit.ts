@@ -1,5 +1,5 @@
 import type { InteractionReplyOptions } from "discord.js";
-import { normalizeMessagePayload } from "../../../ui/discordPayload.js";
+import { normalizeMessagePayload } from "../../../adapters/discord/payload/discordPayload.js";
 import { getPacketLinks } from "../../../core/graph/getPacketLinks.js";
 import { toDiscordLinkOptions } from "../../../adapters/discord/views/linkOptions.js";
 import { renderPacketCard } from "../../../adapters/discord/views/renderPacketCard.js";
