@@ -1,10 +1,10 @@
 import type { Interaction } from "discord.js";
 import { getCustomIdSafe, parseAction, splitPipe } from "./parseCustomId.js";
-
 import { handleViewPacketButton } from "./handlers/viewPacketButton.js";
-import { handleShowBacklinksButton } from "./handlers/showbacklinksbutton.js";
+import { handleShowBacklinksButton } from "./handlers/showBacklinksbutton.js";
 import { handleShowRelationsButton } from "./handlers/showRelationsButton.js";
 import { handleViewPacketSelect } from "./handlers/viewPacketSelect.js";
+import { handleViewPacketPageButton } from "./handlers/viewPacketPage.js";
 
 export async function routeComponentInteractions(interaction: Interaction) {
   const customId = getCustomIdSafe(interaction);
@@ -22,7 +22,7 @@ export async function routeComponentInteractions(interaction: Interaction) {
     if (action === "nx:view_packet_btn") return handleViewPacketButton(interaction, payloadRaw);
     if (action === "nx:show_backlinks") return handleShowBacklinksButton(interaction, payloadRaw);
     if (action === "nx:show_relations") return handleShowRelationsButton(interaction, payloadRaw);
-
+    if (action === "nx:view_packet_page") return handleViewPacketPageButton(interaction);
     return;
   }
 

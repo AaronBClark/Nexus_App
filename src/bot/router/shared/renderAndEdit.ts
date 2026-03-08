@@ -1,20 +1,24 @@
 import type { InteractionReplyOptions } from "discord.js";
-import { listIncomingLinks, listOutgoingLinks } from "../../../db/repo.js";
-import { renderPacket } from "../../../ui/renderers/index.js";
 import { normalizeMessagePayload } from "../../../ui/discordPayload.js";
-import { buildSelectOptionsFromLinks } from "./options.js"; // adjust path
+import { getPacketLinks } from "../../../core/graph/getPacketLinks.js";
+import { toDiscordLinkOptions } from "../../../adapters/discord/views/linkOptions.js";
+import { renderPacketCard } from "../../../adapters/discord/views/renderPacketCard.js";
 
-export async function renderAndEdit(ix: any, packet: any) {
-  const outgoing:any = listOutgoingLinks(packet.id);   // [{ rel, to_id }]
-  const incoming:any = listIncomingLinks(packet.id);   // [{ rel, from_id }]
+export async function renderAndEdit(ix: any, packet: any, opts?: { page?: number }) {
+  const links = getPacketLinks(packet.id);
 
-  const outgoingOpts = buildSelectOptionsFromLinks(outgoing, "outgoing");
-  const incomingOpts = buildSelectOptionsFromLinks(incoming, "incoming");
+  const view = renderPacketCard(
+    packet,
+    {
+      outgoing: toDiscordLinkOptions(links.outgoing),
+      incoming: toDiscordLinkOptions(links.incoming),
+    },
+    { page: opts?.page ?? 0 }
+  );
 
-  const view = renderPacket(packet, {
-    outgoing: outgoingOpts,
-    incoming: incomingOpts,
-  });
-
-  return ix.editReply(normalizeMessagePayload(view) as InteractionReplyOptions);
+  return ix.editReply(
+    normalizeMessagePayload({
+    content: `Viewing: \`${packet.id}\``,      ...view,
+    }) as InteractionReplyOptions
+  );
 }
